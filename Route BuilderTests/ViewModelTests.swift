@@ -38,6 +38,26 @@ final class ViewModelTests: XCTestCase {
         XCTAssertFalse(viewModel.searchFailed)
     }
 
+    func testEmptySearchOffersManualAddressSeparately() async {
+        let api = FakeAPI()
+        api.stopsResult[""] = .success([makeStop(id: "c", name: "Cafe")])
+        api.stopsResult["ZZZ"] = .success([])
+        let store = RouteDraftStore()
+        let viewModel = StopsViewModel(api: api, store: store, debounceNanoseconds: 0)
+        await viewModel.load()
+        viewModel.searchTextChanged("ZZZ")
+        await waitUntil { viewModel.sections.isEmpty && viewModel.query == "ZZZ" }
+        let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+        XCTAssertNotNil(label(in: controller.view, text: "No stop found"))
+        XCTAssertNotNil(label(in: controller.view, text: "Try another street"))
+        XCTAssertNotNil(buttonTitled("Enter an address", in: controller.view))
+        XCTAssertNil(buttonTitled("Try another street or enter an address manually", in: controller.view))
+    }
+
     func testFinishBlocksEmptyInstructions() async {
         let api = FakeAPI()
         let store = RouteDraftStore()

@@ -221,10 +221,10 @@ final class StopsViewController: UIViewController, UITableViewDataSource, UITabl
             if !viewModel.query.isEmpty, viewModel.sections.isEmpty, !viewModel.searchFailed {
                 return messageView(
                     title: "No stop found",
-                    subtitle: nil,
-                    actionTitle: "Try another street or enter an address manually",
+                    subtitle: "Try another street",
+                    actionTitle: "Enter an address",
                     action: #selector(manualTapped),
-                    quietAction: true
+                    quietAction: false
                 )
             }
             return nil
