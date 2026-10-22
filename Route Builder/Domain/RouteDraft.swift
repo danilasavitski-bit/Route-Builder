@@ -72,7 +72,7 @@ enum StopGrouping {
 }
 
 struct RouteDraft: Equatable {
-    var mode: SelectionMode = .multiStop
+    var mode: SelectionMode = .oneStop
     var stops: [RouteStop] = []
 
     var packageTotal: Int {

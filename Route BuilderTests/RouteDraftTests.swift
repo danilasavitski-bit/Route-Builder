@@ -44,8 +44,12 @@ final class RouteDraftTests: XCTestCase {
         XCTAssertEqual(draft.stops.map(\.stopID), ["b"])
     }
 
+    func testDefaultModeIsOneStop() {
+        XCTAssertEqual(RouteDraft().mode, .oneStop)
+    }
+
     func testSwitchingToOneStopKeepsTheFirstStop() {
-        var draft = RouteDraft()
+        var draft = RouteDraft(mode: .multiStop)
         draft.select(makeStop(id: "a", name: "Almond"))
         draft.select(makeStop(id: "b", name: "Bluebell"))
         draft.setMode(.oneStop)
@@ -70,7 +74,7 @@ final class RouteDraftTests: XCTestCase {
     }
 
     func testInvalidInstructionsUseTrimmedText() {
-        var draft = RouteDraft()
+        var draft = RouteDraft(mode: .multiStop)
         draft.select(makeStop(id: "a", name: "Almond"))
         draft.select(makeStop(id: "b", name: "Bluebell"))
         draft.select(makeStop(id: "c", name: "Cafe"))
@@ -88,7 +92,7 @@ final class RouteDraftTests: XCTestCase {
     }
 
     func testSubtitleSumsPackages() {
-        var draft = RouteDraft()
+        var draft = RouteDraft(mode: .multiStop)
         draft.select(makeStop(id: "a", name: "Almond"))
         draft.select(makeStop(id: "b", name: "Bluebell"))
         draft.setPackages(stopID: "a", packages: 2)
