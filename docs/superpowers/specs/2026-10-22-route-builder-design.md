@@ -50,7 +50,7 @@ A view model does not import UIKit. A view controller does not parse JSON or dec
 
 ## Screens
 
-Both screens share a header. Title is the fixed string `Morning route`. The mock’s “Central area” and the static “38 packages | 14 stops” have no API behind them. The subtitle is computed from the draft: `N packages | M stops`.
+Both screens share a header. Title is the fixed string `Morning route — Central area`, taken from the mock. The static “38 packages | 14 stops” has no API behind them. The subtitle is computed from the draft: `N packages | M stops`.
 
 Under the header, a two-tab bar switches Stops and Instructions. Instructions with an empty draft shows an empty state and does not call the server. Continue on Stops switches to Instructions.
 
@@ -72,7 +72,7 @@ Under the header, a two-tab bar switches Stops and Instructions. Instructions wi
 ### Instructions
 
 - Cards follow the draft order.
-- The card nearest the vertical center is active: scale 1, opacity 1. The others scale to 0.94 and fade to 0.55. No blur.
+- The sharp card is the one with the largest visible fraction of its own height. Ties keep the previous focused stop. Inactive cards show a live `systemUltraThinMaterialLight` blur that fades in and out. The card stays at alpha 1. There is no content-view scale.
 - The field accepts 200 characters. The counter is `N/200`. Clear all empties that card.
 - Finish trims each instruction. An empty trimmed string is invalid. The first invalid card scrolls into view and shows `Add instructions for this stop before finishing`.
 - Swipe reveals `Remove from route`. The same action is on the card so it is reachable one-handed without a precise swipe.
@@ -125,7 +125,7 @@ Normalization applied before a model exists:
 | Address book still loading | Spinner in the list area. Search and Continue wait. |
 | Load failed after retries | Message and a Retry button. The draft is kept. |
 | Search failed | Message under the field. The previous list stays. |
-| Search with no rows | `No stop found` and `Try another street`. No manual-entry action. |
+| Search with no rows | `No stop found`, subtitle `Try another street`, and a separate `Enter an address` action. |
 | Finish with a gap | Inline error on the card. No request. |
 | Submit failed | Error on the Finish button and a chance to retry the same body. |
 | Submit succeeded | Confirmation with the route id. Finish cannot fire again until the draft changes. |
