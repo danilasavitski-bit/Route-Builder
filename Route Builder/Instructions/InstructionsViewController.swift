@@ -50,7 +50,6 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Theme.feed
-        addGlow()
 
         emptyLabel.text = "Select stops before writing instructions."
         emptyLabel.font = .systemFont(ofSize: 16, weight: .semibold)
@@ -354,31 +353,6 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
             height.constant = on ? 16 : 5
             dotStack.arrangedSubviews[index].backgroundColor = on ? Theme.teal : Theme.dot
         }
-    }
-
-    private func addGlow() {
-        let top = UIView()
-        top.backgroundColor = Theme.teal.withAlphaComponent(0.10)
-        top.layer.cornerRadius = 150
-        top.isUserInteractionEnabled = false
-        top.translatesAutoresizingMaskIntoConstraints = false
-        let bottom = UIView()
-        bottom.backgroundColor = Theme.teal.withAlphaComponent(0.10)
-        bottom.layer.cornerRadius = 110
-        bottom.isUserInteractionEnabled = false
-        bottom.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(top)
-        view.addSubview(bottom)
-        NSLayoutConstraint.activate([
-            top.widthAnchor.constraint(equalToConstant: 300),
-            top.heightAnchor.constraint(equalToConstant: 300),
-            top.topAnchor.constraint(equalTo: view.topAnchor, constant: -150),
-            top.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 90),
-            bottom.widthAnchor.constraint(equalToConstant: 220),
-            bottom.heightAnchor.constraint(equalToConstant: 220),
-            bottom.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: 110),
-            bottom.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: -70)
-        ])
     }
 
     private func showPhotos(on cell: InstructionCardCell, stop: RouteStop) {
