@@ -165,7 +165,7 @@ final class StopsViewController: UIViewController, UITableViewDataSource, UITabl
 
             indexStack.topAnchor.constraint(equalTo: tableView.topAnchor, constant: 4),
             indexStack.bottomAnchor.constraint(equalTo: tableView.bottomAnchor, constant: -4),
-            indexStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 1),
+            indexStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -1),
             indexStack.widthAnchor.constraint(equalToConstant: 16),
 
             bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),

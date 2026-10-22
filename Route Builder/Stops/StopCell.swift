@@ -63,15 +63,19 @@ final class StopCell: UITableViewCell {
         textStack.spacing = 0
         textStack.translatesAutoresizingMaskIntoConstraints = false
 
+        let trailingStack = UIStackView(arrangedSubviews: [phoneLabel, pillButton])
+        trailingStack.axis = .horizontal
+        trailingStack.spacing = 0
+        trailingStack.translatesAutoresizingMaskIntoConstraints = false
+
         contentView.addSubview(box)
         contentView.addSubview(avatar)
         contentView.addSubview(textStack)
-        contentView.addSubview(phoneLabel)
-        contentView.addSubview(pillButton)
+        contentView.addSubview(trailingStack)
         contentView.addSubview(hairline)
 
         NSLayoutConstraint.activate([
-            box.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            box.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             box.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             box.widthAnchor.constraint(equalToConstant: 23),
             box.heightAnchor.constraint(equalToConstant: 23),
@@ -85,13 +89,10 @@ final class StopCell: UITableViewCell {
 
             textStack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 12),
             textStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            textStack.trailingAnchor.constraint(lessThanOrEqualTo: phoneLabel.leadingAnchor, constant: -8),
-            textStack.trailingAnchor.constraint(lessThanOrEqualTo: pillButton.leadingAnchor, constant: -8),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingStack.leadingAnchor, constant: -8),
 
-            phoneLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
-            phoneLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            pillButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
-            pillButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            trailingStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
+            trailingStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
 
             hairline.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             hairline.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),

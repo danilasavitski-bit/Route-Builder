@@ -175,6 +175,22 @@ final class ViewModelTests: XCTestCase {
         XCTAssertTrue(store.draft.stops.isEmpty)
     }
 
+    func testSectionIndexSitsOnTheTrailingEdge() async {
+        let api = FakeAPI()
+        api.stopsResult[""] = .success([makeStop(id: "a", name: "Almond")])
+        let store = RouteDraftStore()
+        let viewModel = StopsViewModel(api: api, store: store, debounceNanoseconds: 0)
+        await viewModel.load()
+        let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+        let index = stackOfLetters(in: controller.view)
+        XCTAssertNotNil(index)
+        XCTAssertGreaterThan(index?.frame.minX ?? 0, 360)
+    }
+
     func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
         let store = RouteDraftStore()
         store.update {
@@ -283,6 +299,18 @@ final class ViewModelTests: XCTestCase {
         if let button = view as? UIButton, button.currentTitle == title { return button }
         for subview in view.subviews {
             if let button = buttonTitled(title, in: subview) { return button }
+        }
+        return nil
+    }
+
+    private func stackOfLetters(in view: UIView) -> UIStackView? {
+        if let stack = view as? UIStackView,
+           stack.arrangedSubviews.count == 26,
+           (stack.arrangedSubviews.first as? UIButton)?.currentTitle == "A" {
+            return stack
+        }
+        for subview in view.subviews {
+            if let stack = stackOfLetters(in: subview) { return stack }
         }
         return nil
     }
