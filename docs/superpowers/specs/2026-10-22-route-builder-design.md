@@ -50,7 +50,7 @@ A view model does not import UIKit. A view controller does not parse JSON or dec
 
 ## Screens
 
-Both screens share a header. Title is the fixed string `Morning route — Central area`, taken from the mock. The static “38 packages | 14 stops” has no API behind them. The subtitle is computed from the draft: `N packages | M stops`.
+Both screens share a header. Title is the fixed string `Morning route — Central area`, taken from the mock. The static “38 packages | 14 stops” has no API behind it. The subtitle is computed from the draft: `N packages | M stops`.
 
 Under the header, a two-tab bar switches Stops and Instructions. Instructions with an empty draft shows an empty state and does not call the server. Continue on Stops switches to Instructions.
 
