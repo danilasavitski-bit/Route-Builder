@@ -91,6 +91,17 @@ final class APIClient: DispatchAPI {
         return (page.items ?? []).map(\.photo)
     }
 
+    func fetchImageData(from url: URL) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        let (data, http) = try await send(request)
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(status: http.statusCode, code: "")
+        }
+        return data
+    }
+
     func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
         let body = try JSONSerialization.data(withJSONObject: ["stop_id": stopID])
         var request = makeRequest(url: endpoint(["v1", "routes", routeID, "notify"]), method: "POST", body: body)

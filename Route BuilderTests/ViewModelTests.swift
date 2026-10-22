@@ -345,6 +345,17 @@ final class ViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.submitState, .idle)
     }
 
+    func testFailedPhotoLoadIsNotAnEmptyGallery() async {
+        let api = FakeAPI()
+        api.photoResults["a"] = .failure(APIError.transport)
+        let store = RouteDraftStore()
+        store.update { $0.select(makeStop(id: "a", name: "Almond")) }
+        let viewModel = InstructionsViewModel(api: api, store: store)
+        viewModel.loadPhotosIfNeeded(stopID: "a")
+        await waitUntil { viewModel.photos["a"] != nil }
+        XCTAssertEqual(viewModel.photos["a"], .failed)
+    }
+
     private func filledStore() -> RouteDraftStore {
         let store = RouteDraftStore()
         store.update {
@@ -373,13 +384,18 @@ private final class FakeAPI: DispatchAPI {
     var createCount = 0
     var notifyResult = NotifyResult(stopID: "", status: "sent", reason: nil)
     var notifyKeys: [String] = []
+    var photoResults: [String: Result<[StopPhoto], Error>] = [:]
 
     func fetchStops(query: String?) async throws -> [Stop] {
         queries.append(query)
         return try (stopsResult[query ?? ""] ?? .success([])).get()
     }
 
-    func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
+    func fetchPhotos(stopID: String) async throws -> [StopPhoto] {
+        try (photoResults[stopID] ?? .success([])).get()
+    }
+
+    func fetchImageData(from url: URL) async throws -> Data { Data() }
 
     func createRoute(stops: [RouteStop]) async throws -> CreatedRoute {
         createCount += 1
@@ -402,6 +418,8 @@ private final class GateAPI: DispatchAPI {
     func fetchStops(query: String?) async throws -> [Stop] { [] }
 
     func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
+
+    func fetchImageData(from url: URL) async throws -> Data { Data() }
 
     func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
         notifiedStopIDs.append(stopID)

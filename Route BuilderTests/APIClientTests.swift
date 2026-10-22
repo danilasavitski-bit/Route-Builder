@@ -147,6 +147,15 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(photos[1].url?.absoluteString, "https://picsum.photos/seed/a/400/250")
     }
 
+    func testImageDataUsesTheClientSession() async throws {
+        stub { request in
+            XCTAssertEqual(request.url?.absoluteString, "https://picsum.photos/seed/a/8/8")
+            return (200, Data([0xFF, 0xD8]), [:])
+        }
+        let data = try await makeClient().fetchImageData(from: URL(string: "https://picsum.photos/seed/a/8/8")!)
+        XCTAssertEqual(data, Data([0xFF, 0xD8]))
+    }
+
     func testNotifyKeepsAFailedStatus() async throws {
         stub { request in
             XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "key-1")

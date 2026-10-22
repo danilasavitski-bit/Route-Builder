@@ -196,6 +196,9 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
                 guard let stop = stops.first(where: { $0.stopID == cell.stopID }) else { continue }
                 cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(cell.stopID))
                 cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
+                cell.loadImage = { [weak self] url in
+                    await self?.viewModel.imageData(for: url)
+                }
                 cell.showDropOff(path: stop.dropOffPhotoPath)
             }
             collectionView.collectionViewLayout.invalidateLayout()
@@ -282,7 +285,8 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
             return CGSize(width: width, height: cached)
         }
         sizingCell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(stop.stopID))
-        sizingCell.showDeliveryPhotos(stop.stopID.hasPrefix("local_") ? nil : [], local: stop.stopID.hasPrefix("local_"))
+        sizingCell.showDeliveryPhotos(stop.stopID.hasPrefix("local_") ? nil : .ready([]), local: stop.stopID.hasPrefix("local_"))
+        sizingCell.loadImage = nil
         sizingCell.showDropOff(path: stop.dropOffPhotoPath)
         let height = sizingCell.measuredHeight(width: width)
         heightCache[key] = height
@@ -383,6 +387,9 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         let stop = store.draft.stops[indexPath.item]
         cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(stop.stopID))
         cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
+        cell.loadImage = { [weak self] url in
+            await self?.viewModel.imageData(for: url)
+        }
         cell.showDropOff(path: stop.dropOffPhotoPath)
         viewModel.loadPhotosIfNeeded(stopID: stop.stopID)
         cell.onCamera = { [weak self] in

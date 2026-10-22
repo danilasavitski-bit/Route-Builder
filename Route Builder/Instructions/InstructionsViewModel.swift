@@ -14,6 +14,16 @@ struct DriverNotice: Equatable {
     var reason: String?
 }
 
+enum PhotoGallery: Equatable {
+    case ready([StopPhoto])
+    case failed
+
+    var readyPhotos: [StopPhoto] {
+        if case .ready(let photos) = self { return photos }
+        return []
+    }
+}
+
 @MainActor
 final class InstructionsViewModel {
     private let api: DispatchAPI
@@ -26,7 +36,7 @@ final class InstructionsViewModel {
     private(set) var submitState: SubmitState = .idle
     private(set) var invalidStopIDs: [String] = []
     private(set) var notices: [DriverNotice] = []
-    private(set) var photos: [String: [StopPhoto]] = [:]
+    private(set) var photos: [String: PhotoGallery] = [:]
     var onChange: (() -> Void)?
 
     init(api: DispatchAPI, store: RouteDraftStore) {
@@ -53,11 +63,20 @@ final class InstructionsViewModel {
         guard photos[stopID] == nil, photoTasks[stopID] == nil else { return }
         photoTasks[stopID] = Task { [weak self] in
             guard let self else { return }
-            let loaded = (try? await self.api.fetchPhotos(stopID: stopID)) ?? []
-            self.photos[stopID] = loaded
+            let gallery: PhotoGallery
+            do {
+                gallery = .ready(try await self.api.fetchPhotos(stopID: stopID))
+            } catch {
+                gallery = .failed
+            }
+            self.photos[stopID] = gallery
             self.photoTasks[stopID] = nil
             self.onChange?()
         }
+    }
+
+    func imageData(for url: URL) async -> Data? {
+        try? await api.fetchImageData(from: url)
     }
 
     func attachDropOffPhoto(stopID: String, path: String) {

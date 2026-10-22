@@ -9,6 +9,7 @@ enum APIError: Error, Equatable {
 protocol DispatchAPI {
     func fetchStops(query: String?) async throws -> [Stop]
     func fetchPhotos(stopID: String) async throws -> [StopPhoto]
+    func fetchImageData(from url: URL) async throws -> Data
     func createRoute(stops: [RouteStop]) async throws -> CreatedRoute
     func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult
 }

@@ -8,6 +8,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     var onClear: (() -> Void)?
     var onCamera: (() -> Void)?
     var onRemove: (() -> Void)?
+    var loadImage: ((URL) async -> Data?)?
 
     private let card = UIView()
     private let nameRow = UIView()
@@ -29,7 +30,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     private let removeStrip = UILabel()
     private var shownPhotoKey: String?
     private var shownDropOffPath: String?
-    private var imageTasks: [URLSessionDataTask] = []
+    private var imageTasks: [Task<Void, Never>] = []
     private var showsBlur = false
 
     override init(frame: CGRect) {
@@ -291,7 +292,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         textView.layer.borderWidth = invalid ? 1.5 : 1
     }
 
-    func showDeliveryPhotos(_ photos: [StopPhoto]?, local: Bool) {
+    func showDeliveryPhotos(_ gallery: PhotoGallery?, local: Bool) {
         photosTitle.isHidden = local
         photosRow.isHidden = local
         if local {
@@ -299,35 +300,41 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             shownPhotoKey = nil
             return
         }
-        if photos == nil {
+        if gallery == nil {
             guard shownPhotoKey != "loading" else { return }
             shownPhotoKey = "loading"
             clearPhotoRow()
             photosRow.addArrangedSubview(caption("Loading…"))
             return
         }
-        let visible = photos?.filter { $0.url != nil } ?? []
+        if case .failed = gallery {
+            guard shownPhotoKey != "failed" else { return }
+            shownPhotoKey = "failed"
+            cancelImageLoads()
+            clearPhotoRow()
+            photosRow.addArrangedSubview(caption("Could not load photos from the last delivery"))
+            return
+        }
+        let visible = gallery?.readyPhotos ?? []
         let key = visible.map(\.id).joined(separator: ",")
         guard shownPhotoKey != key else { return }
         shownPhotoKey = key
         cancelImageLoads()
         clearPhotoRow()
-        if visible.isEmpty {
+        let withURL = visible.filter { $0.url != nil }
+        if withURL.isEmpty {
             photosRow.addArrangedSubview(caption("No photos from the last delivery"))
             return
         }
-        for photo in visible {
+        for photo in withURL {
             let tile = PhotoTile(title: photo.title)
             photosRow.addArrangedSubview(tile)
             guard let url = photo.url else { continue }
-            let task = URLSession.shared.dataTask(with: url) { data, _, _ in
-                guard let data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async {
-                    tile.setImage(image)
-                }
+            let task = Task { [weak self] in
+                guard let data = await self?.loadImage?(url), let image = UIImage(data: data) else { return }
+                tile.setImage(image)
             }
             imageTasks.append(task)
-            task.resume()
         }
     }
 
