@@ -3,83 +3,101 @@ import UIKit
 final class StopCell: UITableViewCell {
     static let reuseID = "StopCell"
 
+    private(set) var stopID = ""
     var onPill: (() -> Void)?
 
-    private let card = UIView()
-    private let initialsLabel = UILabel()
+    private let box = UIView()
+    private let check = UIImageView()
+    private let avatar = UILabel()
     private let nameLabel = UILabel()
     private let addressLabel = UILabel()
     private let phoneLabel = UILabel()
     private let pillButton = UIButton(type: .system)
+    private let hairline = UIView()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         selectionStyle = .none
-        backgroundColor = .clear
-        contentView.backgroundColor = .clear
+        backgroundColor = .white
+        contentView.backgroundColor = .white
 
-        card.backgroundColor = Theme.card
-        card.layer.cornerRadius = Theme.radius
-        card.layer.borderWidth = 1
-        card.layer.borderColor = Theme.hairline.cgColor
-        card.translatesAutoresizingMaskIntoConstraints = false
+        box.layer.cornerRadius = 6
+        box.layer.borderWidth = 1.5
+        box.translatesAutoresizingMaskIntoConstraints = false
+        check.image = UIImage(systemName: "checkmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .bold))
+        check.tintColor = .white
+        check.translatesAutoresizingMaskIntoConstraints = false
+        box.addSubview(check)
 
-        initialsLabel.font = .systemFont(ofSize: 13, weight: .bold)
-        initialsLabel.textColor = .white
-        initialsLabel.textAlignment = .center
-        initialsLabel.backgroundColor = Theme.teal
-        initialsLabel.layer.cornerRadius = 18
-        initialsLabel.clipsToBounds = true
-        initialsLabel.translatesAutoresizingMaskIntoConstraints = false
+        avatar.font = .systemFont(ofSize: 12, weight: .bold)
+        avatar.textColor = Theme.text
+        avatar.textAlignment = .center
+        avatar.layer.cornerRadius = 11
+        avatar.clipsToBounds = true
+        avatar.translatesAutoresizingMaskIntoConstraints = false
 
-        nameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        nameLabel.font = .systemFont(ofSize: 14)
         nameLabel.textColor = Theme.text
-        addressLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        addressLabel.font = .systemFont(ofSize: 12)
         addressLabel.textColor = Theme.secondary
-        phoneLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        phoneLabel.font = .systemFont(ofSize: 13)
         phoneLabel.textColor = Theme.secondary
-        [nameLabel, addressLabel, phoneLabel].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            $0.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        }
+        phoneLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        [nameLabel, addressLabel, phoneLabel].forEach { $0.translatesAutoresizingMaskIntoConstraints = false }
 
-        pillButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .bold)
+        pillButton.titleLabel?.font = Theme.mono(12)
         pillButton.setTitleColor(Theme.teal, for: .normal)
-        pillButton.backgroundColor = Theme.background
-        pillButton.layer.cornerRadius = 14
-        pillButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        pillButton.backgroundColor = .white
+        pillButton.layer.cornerRadius = 11
+        pillButton.layer.borderWidth = 1
+        pillButton.layer.borderColor = Theme.teal.cgColor
+        pillButton.contentEdgeInsets = UIEdgeInsets(top: 3, left: 10, bottom: 3, right: 10)
         pillButton.translatesAutoresizingMaskIntoConstraints = false
         pillButton.addTarget(self, action: #selector(pillTapped), for: .touchUpInside)
 
-        let textStack = UIStackView(arrangedSubviews: [nameLabel, addressLabel, phoneLabel])
+        hairline.backgroundColor = Theme.hairline
+        hairline.translatesAutoresizingMaskIntoConstraints = false
+
+        let textStack = UIStackView(arrangedSubviews: [nameLabel, addressLabel])
         textStack.axis = .vertical
-        textStack.spacing = 2
+        textStack.spacing = 0
         textStack.translatesAutoresizingMaskIntoConstraints = false
 
-        contentView.addSubview(card)
-        card.addSubview(initialsLabel)
-        card.addSubview(textStack)
-        card.addSubview(pillButton)
+        contentView.addSubview(box)
+        contentView.addSubview(avatar)
+        contentView.addSubview(textStack)
+        contentView.addSubview(phoneLabel)
+        contentView.addSubview(pillButton)
+        contentView.addSubview(hairline)
 
         NSLayoutConstraint.activate([
-            card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
-            card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 14),
-            card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -22),
-            card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -4),
+            box.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 22),
+            box.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            box.widthAnchor.constraint(equalToConstant: 23),
+            box.heightAnchor.constraint(equalToConstant: 23),
+            check.centerXAnchor.constraint(equalTo: box.centerXAnchor),
+            check.centerYAnchor.constraint(equalTo: box.centerYAnchor),
 
-            initialsLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
-            initialsLabel.centerYAnchor.constraint(equalTo: card.centerYAnchor),
-            initialsLabel.widthAnchor.constraint(equalToConstant: 36),
-            initialsLabel.heightAnchor.constraint(equalToConstant: 36),
+            avatar.leadingAnchor.constraint(equalTo: box.trailingAnchor, constant: 12),
+            avatar.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            avatar.widthAnchor.constraint(equalToConstant: 40),
+            avatar.heightAnchor.constraint(equalToConstant: 40),
 
-            textStack.leadingAnchor.constraint(equalTo: initialsLabel.trailingAnchor, constant: 10),
-            textStack.topAnchor.constraint(equalTo: card.topAnchor, constant: 10),
-            textStack.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -10),
+            textStack.leadingAnchor.constraint(equalTo: avatar.trailingAnchor, constant: 12),
+            textStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            textStack.trailingAnchor.constraint(lessThanOrEqualTo: phoneLabel.leadingAnchor, constant: -8),
             textStack.trailingAnchor.constraint(lessThanOrEqualTo: pillButton.leadingAnchor, constant: -8),
 
-            pillButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
-            pillButton.centerYAnchor.constraint(equalTo: card.centerYAnchor),
-            pillButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 28)
+            phoneLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
+            phoneLabel.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            pillButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -14),
+            pillButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+
+            hairline.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            hairline.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            hairline.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            hairline.heightAnchor.constraint(equalToConstant: 1),
+            contentView.heightAnchor.constraint(greaterThanOrEqualToConstant: 60)
         ])
     }
 
@@ -87,18 +105,34 @@ final class StopCell: UITableViewCell {
         nil
     }
 
-    func configure(stop: Stop, packages: Int?) {
-        initialsLabel.text = stop.initials
-        nameLabel.text = stop.name
+    func configure(stop: Stop, packages: Int?, query: String) {
+        stopID = stop.id
+        avatar.text = stop.initials
+        avatar.backgroundColor = Theme.avatarColor(for: stop.id)
+        nameLabel.attributedText = highlighted(stop.name, query: query, font: nameLabel.font, color: Theme.text)
         addressLabel.text = stop.address
         phoneLabel.text = stop.phone
+        let selected = packages != nil
+        backgroundColor = selected ? Theme.selectedRow : .white
+        contentView.backgroundColor = backgroundColor
+        box.backgroundColor = selected ? Theme.teal : .white
+        box.layer.borderColor = (selected ? Theme.teal : Theme.checkboxBorder).cgColor
+        check.isHidden = !selected
+        phoneLabel.isHidden = selected
+        pillButton.isHidden = !selected
         if let packages {
             pillButton.setTitle("\(packages)×", for: .normal)
-            pillButton.isHidden = false
-        } else {
-            pillButton.setTitle(nil, for: .normal)
-            pillButton.isHidden = true
         }
+    }
+
+    private func highlighted(_ text: String, query: String, font: UIFont, color: UIColor) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: text, attributes: [
+            .font: font,
+            .foregroundColor: color
+        ])
+        guard !query.isEmpty, let range = text.range(of: query) else { return result }
+        result.addAttribute(.backgroundColor, value: Theme.highlight, range: NSRange(range, in: text))
+        return result
     }
 
     @objc private func pillTapped() {

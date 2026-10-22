@@ -58,7 +58,9 @@ final class DepotViewController: UIViewController, RouteDraftListener {
         mark.addSubview(dot)
 
         let title = UILabel()
-        title.text = "Morning route"
+        title.text = "Morning route — Central area"
+        title.adjustsFontSizeToFitWidth = true
+        title.minimumScaleFactor = 0.8
         title.font = Theme.titleFont()
         title.textColor = Theme.text
         subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)

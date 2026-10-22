@@ -88,6 +88,98 @@ final class ViewModelTests: XCTestCase {
         XCTAssertNotEqual(api.notifyKeys[0], api.notifyKeys[1])
     }
 
+    func testManualAddressSelectsALocalStopWithTheFallbackLimit() async {
+        let store = RouteDraftStore()
+        let viewModel = StopsViewModel(api: FakeAPI(), store: store)
+        viewModel.addManual(name: " Side door ", address: " 9 Dock ", phone: " 555 ")
+        XCTAssertEqual(store.draft.stops.count, 1)
+        XCTAssertEqual(store.draft.stops[0].name, "Side door")
+        XCTAssertEqual(store.draft.stops[0].address, "9 Dock")
+        XCTAssertEqual(store.draft.stops[0].phone, "555")
+        XCTAssertEqual(store.draft.stops[0].packagesMax, 99)
+        XCTAssertTrue(store.draft.stops[0].stopID.hasPrefix("local_"))
+    }
+
+    func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
+        let store = RouteDraftStore()
+        store.update {
+            $0.setMode(.multiStop)
+            $0.select(makeStop(id: "a", name: "Almond"))
+            $0.select(makeStop(id: "b", name: "Birch"))
+            $0.setInstructions(stopID: "a", text: "Ring the bell")
+            $0.setInstructions(stopID: "b", text: "Leave at the door")
+        }
+        let controller = InstructionsViewController(
+            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+            store: store
+        )
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+
+        let collection = controller.view.subviews.compactMap { $0 as? UICollectionView }.first
+        let height = collection?.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))?.frame.height ?? 0
+        let textView = collection?.cellForItem(at: IndexPath(item: 0, section: 0)).flatMap(textView(in:))
+        XCTAssertGreaterThan(height, 300)
+        XCTAssertLessThan(height, (collection?.bounds.height ?? 0) - 80)
+        XCTAssertGreaterThan(collection?.contentSize.height ?? 0, (collection?.bounds.height ?? 0) + 1)
+        XCTAssertEqual(textView?.isScrollEnabled, false)
+        XCTAssertEqual(textView?.panGestureRecognizer.isEnabled, false)
+        collection?.setContentOffset(CGPoint(x: 0, y: 120), animated: false)
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(collection?.contentOffset.y ?? -1, 120)
+    }
+
+    func testBlurLeavesTheCardUnderTheFinger() {
+        let store = RouteDraftStore()
+        store.update {
+            $0.setMode(.multiStop)
+            $0.select(makeStop(id: "a", name: "Almond"))
+            $0.select(makeStop(id: "b", name: "Birch"))
+            $0.setInstructions(stopID: "a", text: "Ring the bell")
+            $0.setInstructions(stopID: "b", text: "Leave at the door")
+        }
+        let controller = InstructionsViewController(
+            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+            store: store
+        )
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+
+        let collection = controller.view.subviews.compactMap { $0 as? UICollectionView }.first
+        let cell = collection?.cellForItem(at: IndexPath(item: 0, section: 0)) as? InstructionCardCell
+        cell?.setActive(false)
+
+        let text = cell.flatMap(textView(in:))
+        var view: UIView? = text
+        while let current = view {
+            XCTAssertGreaterThan(current.alpha, 0.01)
+            XCTAssertFalse(current.isHidden)
+            view = current.superview
+        }
+        let blurred = cell.map { imageViews(in: $0).contains { !$0.isHidden && $0.image != nil } } ?? false
+        XCTAssertTrue(blurred)
+    }
+
+    private func imageViews(in view: UIView) -> [UIImageView] {
+        var found = view.subviews.compactMap { $0 as? UIImageView }
+        for subview in view.subviews {
+            found += imageViews(in: subview)
+        }
+        return found
+    }
+
+    private func textView(in view: UIView) -> UITextView? {
+        if let textView = view as? UITextView { return textView }
+        for subview in view.subviews {
+            if let textView = textView(in: subview) { return textView }
+        }
+        return nil
+    }
+
     func testEditingTheDraftClearsSuccess() async {
         let api = FakeAPI()
         let store = filledStore()

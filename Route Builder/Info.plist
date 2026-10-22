@@ -19,6 +19,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Route Builder uses the camera for a drop-off photo that stays on this phone.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Route Builder uses a photo from your library when this device has no camera.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

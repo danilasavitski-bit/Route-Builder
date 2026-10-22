@@ -87,4 +87,20 @@ final class StopsViewModel {
         store.update { $0.setPackages(stopID: stopID, packages: packages) }
         onChange?()
     }
+
+    func addManual(name: String, address: String, phone: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty, !trimmedAddress.isEmpty else { return }
+        let stop = Stop(
+            id: "local_\(UUID().uuidString)",
+            name: trimmedName,
+            address: trimmedAddress,
+            phone: phone.trimmingCharacters(in: .whitespacesAndNewlines),
+            zone: "",
+            packagesMax: 99
+        )
+        store.update { $0.select(stop) }
+        onChange?()
+    }
 }
