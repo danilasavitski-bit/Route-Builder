@@ -8,7 +8,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     var onClear: (() -> Void)?
     var onCamera: (() -> Void)?
     var onRemove: (() -> Void)?
-    var loadImage: ((URL) async -> Data?)?
 
     private let card = UIView()
     private let nameRow = UIView()
@@ -30,7 +29,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     private let removeStrip = UILabel()
     private var shownPhotoKey: String?
     private var shownDropOffPath: String?
-    private var imageTasks: [Task<Void, Never>] = []
     private var showsBlur = false
 
     override init(frame: CGRect) {
@@ -246,7 +244,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
 
     override func prepareForReuse() {
         super.prepareForReuse()
-        cancelImageLoads()
         shownPhotoKey = nil
         shownDropOffPath = ""
         onTextChange = nil
@@ -292,11 +289,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         textView.layer.borderWidth = invalid ? 1.5 : 1
     }
 
-    func showDeliveryPhotos(_ gallery: PhotoGallery?, local: Bool) {
+    func showDeliveryPhotos(_ gallery: PhotoGallery?, images: [URL: Data], local: Bool) {
         photosTitle.isHidden = local
         photosRow.isHidden = local
         if local {
-            cancelImageLoads()
             shownPhotoKey = nil
             return
         }
@@ -310,16 +306,17 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         if case .failed = gallery {
             guard shownPhotoKey != "failed" else { return }
             shownPhotoKey = "failed"
-            cancelImageLoads()
             clearPhotoRow()
             photosRow.addArrangedSubview(caption("Could not load photos from the last delivery"))
             return
         }
         let visible = gallery?.readyPhotos ?? []
         let key = visible.map(\.id).joined(separator: ",")
-        guard shownPhotoKey != key else { return }
+        guard shownPhotoKey != key else {
+            apply(images)
+            return
+        }
         shownPhotoKey = key
-        cancelImageLoads()
         clearPhotoRow()
         let withURL = visible.filter { $0.url != nil }
         if withURL.isEmpty {
@@ -327,14 +324,16 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             return
         }
         for photo in withURL {
-            let tile = PhotoTile(title: photo.title)
+            let tile = PhotoTile(title: photo.title, url: photo.url)
             photosRow.addArrangedSubview(tile)
-            guard let url = photo.url else { continue }
-            let task = Task { [weak self] in
-                guard let data = await self?.loadImage?(url), let image = UIImage(data: data) else { return }
-                tile.setImage(image)
-            }
-            imageTasks.append(task)
+        }
+        apply(images)
+    }
+
+    private func apply(_ images: [URL: Data]) {
+        for case let tile as PhotoTile in photosRow.arrangedSubviews {
+            guard let url = tile.photoURL, let data = images[url], let image = UIImage(data: data) else { continue }
+            tile.setImage(image)
         }
     }
 
@@ -395,11 +394,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             photosRow.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-    }
-
-    private func cancelImageLoads() {
-        imageTasks.forEach { $0.cancel() }
-        imageTasks.removeAll()
     }
 
     @objc private func clearTapped() {
@@ -495,10 +489,12 @@ private final class DropOffButton: UIControl {
 }
 
 private final class PhotoTile: UIView {
+    let photoURL: URL?
     private let imageView = UIImageView()
     private let caption = UILabel()
 
-    init(title: String) {
+    init(title: String, url: URL?) {
+        photoURL = url
         super.init(frame: .zero)
         layer.cornerRadius = 8
         clipsToBounds = true

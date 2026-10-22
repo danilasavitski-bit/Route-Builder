@@ -37,6 +37,8 @@ final class InstructionsViewModel {
     private(set) var invalidStopIDs: [String] = []
     private(set) var notices: [DriverNotice] = []
     private(set) var photos: [String: PhotoGallery] = [:]
+    private(set) var imageBytes: [URL: Data] = [:]
+    private var startedImageURLs: Set<URL> = []
     var onChange: (() -> Void)?
 
     init(api: DispatchAPI, store: RouteDraftStore) {
@@ -75,8 +77,20 @@ final class InstructionsViewModel {
         }
     }
 
-    func imageData(for url: URL) async -> Data? {
-        try? await api.fetchImageData(from: url)
+    func loadImagesIfNeeded(urls: [URL]) {
+        for url in urls where imageBytes[url] == nil && startedImageURLs.insert(url).inserted {
+            let api = api
+            Task { [weak self] in
+                let data: Data
+                do {
+                    data = try await api.fetchImageData(from: url)
+                } catch {
+                    return
+                }
+                self?.imageBytes[url] = data
+                self?.onChange?()
+            }
+        }
     }
 
     func attachDropOffPhoto(stopID: String, path: String) {

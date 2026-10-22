@@ -198,10 +198,7 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
             for case let cell as InstructionCardCell in collectionView.visibleCells {
                 guard let stop = stops.first(where: { $0.stopID == cell.stopID }) else { continue }
                 cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(cell.stopID))
-                cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
-                cell.loadImage = { [weak self] url in
-                    await self?.viewModel.imageData(for: url)
-                }
+                showPhotos(on: cell, stop: stop)
                 cell.showDropOff(path: stop.dropOffPhotoPath)
             }
             collectionView.collectionViewLayout.invalidateLayout()
@@ -288,8 +285,11 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
             return CGSize(width: width, height: cached)
         }
         sizingCell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(stop.stopID))
-        sizingCell.showDeliveryPhotos(stop.stopID.hasPrefix("local_") ? nil : .ready([]), local: stop.stopID.hasPrefix("local_"))
-        sizingCell.loadImage = nil
+        sizingCell.showDeliveryPhotos(
+            stop.stopID.hasPrefix("local_") ? nil : .ready([]),
+            images: [:],
+            local: stop.stopID.hasPrefix("local_")
+        )
         sizingCell.showDropOff(path: stop.dropOffPhotoPath)
         let height = sizingCell.measuredHeight(width: width)
         heightCache[key] = height
@@ -381,6 +381,12 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         ])
     }
 
+    private func showPhotos(on cell: InstructionCardCell, stop: RouteStop) {
+        let gallery = viewModel.photos[stop.stopID]
+        cell.showDeliveryPhotos(gallery, images: viewModel.imageBytes, local: stop.stopID.hasPrefix("local_"))
+        viewModel.loadImagesIfNeeded(urls: gallery?.readyPhotos.compactMap(\.url) ?? [])
+    }
+
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         renderedStops.count
     }
@@ -390,10 +396,7 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         guard renderedStops.indices.contains(indexPath.item) else { return cell }
         let stop = renderedStops[indexPath.item]
         cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(stop.stopID))
-        cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
-        cell.loadImage = { [weak self] url in
-            await self?.viewModel.imageData(for: url)
-        }
+        showPhotos(on: cell, stop: stop)
         cell.showDropOff(path: stop.dropOffPhotoPath)
         viewModel.loadPhotosIfNeeded(stopID: stop.stopID)
         cell.onCamera = { [weak self] in
