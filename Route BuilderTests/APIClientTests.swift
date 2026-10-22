@@ -165,6 +165,17 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(result, NotifyResult(stopID: "stp_1", status: "failed", reason: "carrier_rejected"))
     }
 
+    func testCancelledFetchIsNotATransportError() async {
+        stub { _ in throw CancellationError() }
+        do {
+            _ = try await makeClient().fetchStops(query: nil)
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+        } catch {
+            XCTFail("Unexpected \(error)")
+        }
+    }
+
     private static func bodyData(from request: URLRequest) -> Data {
         if let body = request.httpBody {
             return body

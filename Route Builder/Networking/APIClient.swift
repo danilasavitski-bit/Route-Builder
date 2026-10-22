@@ -141,6 +141,12 @@ final class APIClient: DispatchAPI {
             do {
                 (data, response) = try await session.data(for: request)
             } catch {
+                if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                    throw error
+                }
+                if (error as NSError).domain == "Swift.CancellationError" {
+                    throw CancellationError()
+                }
                 throw APIError.transport
             }
             guard let http = response as? HTTPURLResponse else {
