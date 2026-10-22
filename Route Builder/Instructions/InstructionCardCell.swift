@@ -1,5 +1,4 @@
 import UIKit
-import CoreImage
 
 final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGestureRecognizerDelegate {
     static let reuseID = "InstructionCardCell"
@@ -26,13 +25,12 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     private let cameraButton = UIButton(type: .system)
     private let cameraBorder = CAShapeLayer()
     private let footerLabel = UILabel()
-    private let blurView = UIImageView()
+    private let blurView = UIVisualEffectView(effect: nil)
     private let removeStrip = UILabel()
-    private var wantsBlur = false
     private var shownPhotoKey: String?
     private var shownDropOffPath: String?
     private var imageTasks: [URLSessionDataTask] = []
-    private static let blurContext = CIContext(options: [.cacheIntermediates: false])
+    private var showsBlur = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -153,9 +151,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         stack.axis = .vertical
         stack.spacing = 6
         stack.translatesAutoresizingMaskIntoConstraints = false
-        blurView.isHidden = true
         blurView.isUserInteractionEnabled = false
-        blurView.contentMode = .scaleToFill
+        blurView.layer.cornerRadius = 16
+        blurView.clipsToBounds = true
+        blurView.translatesAutoresizingMaskIntoConstraints = false
         removeStrip.text = "Remove\nfrom route"
         removeStrip.numberOfLines = 2
         removeStrip.textAlignment = .center
@@ -167,8 +166,8 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         removeStrip.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(removeStrip)
         contentView.addSubview(card)
-        contentView.addSubview(blurView)
         card.addSubview(stack)
+        card.addSubview(blurView)
 
         NSLayoutConstraint.activate([
             removeStrip.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
@@ -179,6 +178,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             card.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+            blurView.topAnchor.constraint(equalTo: card.topAnchor),
+            blurView.leadingAnchor.constraint(equalTo: card.leadingAnchor),
+            blurView.trailingAnchor.constraint(equalTo: card.trailingAnchor),
+            blurView.bottomAnchor.constraint(equalTo: card.bottomAnchor),
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
             stack.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -14),
@@ -244,7 +247,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         cameraBorder.frame = cameraButton.bounds
         cameraBorder.path = UIBezierPath(roundedRect: cameraButton.bounds, cornerRadius: 10).cgPath
         card.layer.shadowPath = UIBezierPath(roundedRect: card.bounds, cornerRadius: 16).cgPath
-        blurView.frame = card.frame
     }
 
     override func prepareForReuse() {
@@ -255,12 +257,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         onTextChange = nil
         onClear = nil
         onCamera = nil
-        wantsBlur = false
         card.alpha = 1
         card.transform = .identity
-        blurView.transform = .identity
-        blurView.isHidden = true
-        blurView.image = nil
+        showsBlur = false
+        blurView.effect = nil
         onRemove = nil
     }
 
@@ -278,11 +278,17 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
 
     func setActive(_ active: Bool) {
         nameRow.layer.borderColor = (active ? Theme.teal : Theme.hairline).cgColor
-        contentView.transform = .identity
-        let blur = !active && !textView.isFirstResponder
-        guard blur != wantsBlur else { return }
-        wantsBlur = blur
-        applyBlur()
+        let show = !active && !textView.isFirstResponder
+        guard show != showsBlur else { return }
+        showsBlur = show
+        let effect: UIVisualEffect? = show ? UIBlurEffect(style: .systemUltraThinMaterialLight) : nil
+        let apply = { self.blurView.effect = effect }
+        UIView.animate(
+            withDuration: 0.32,
+            delay: 0,
+            options: [.curveEaseInOut, .allowUserInteraction, .beginFromCurrentState],
+            animations: apply
+        )
     }
 
     func setInvalid(_ invalid: Bool) {
@@ -322,9 +328,8 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             guard let url = photo.url else { continue }
             let task = URLSession.shared.dataTask(with: url) { data, _, _ in
                 guard let data, let image = UIImage(data: data) else { return }
-                DispatchQueue.main.async { [weak self] in
+                DispatchQueue.main.async {
                     tile.setImage(image)
-                    self?.applyBlur()
                 }
             }
             imageTasks.append(task)
@@ -342,53 +347,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
             dropOffImage.image = nil
             dropOffImage.isHidden = true
         }
-        applyBlur()
-    }
-
-    private var blurRetryScheduled = false
-
-    private func applyBlur() {
-        guard wantsBlur else {
-            card.alpha = 1
-            contentView.alpha = 1
-            blurView.isHidden = true
-            blurView.image = nil
-            return
-        }
-        guard card.bounds.width > 1, card.bounds.height > 1 else {
-            guard !blurRetryScheduled else { return }
-            blurRetryScheduled = true
-            DispatchQueue.main.async { [weak self] in
-                self?.blurRetryScheduled = false
-                guard self?.wantsBlur == true else { return }
-                self?.applyBlur()
-            }
-            return
-        }
-        card.alpha = 1
-        blurView.isHidden = true
-        guard let image = Self.blurredSnapshot(of: card) else { return }
-        blurView.image = image
-        blurView.frame = card.frame
-        blurView.isHidden = false
-        contentView.alpha = 0.65
-    }
-
-    private static func blurredSnapshot(of view: UIView) -> UIImage? {
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = view.traitCollection.displayScale
-        format.opaque = false
-        let renderer = UIGraphicsImageRenderer(bounds: view.bounds, format: format)
-        let source = renderer.image { context in
-            view.layer.render(in: context.cgContext)
-        }
-        guard let image = CIImage(image: source),
-              let filter = CIFilter(name: "CIGaussianBlur") else { return nil }
-        filter.setValue(image.clampedToExtent(), forKey: kCIInputImageKey)
-        filter.setValue(3 * source.scale, forKey: kCIInputRadiusKey)
-        guard let output = filter.outputImage?.cropped(to: image.extent),
-              let cgImage = blurContext.createCGImage(output, from: output.extent) else { return nil }
-        return UIImage(cgImage: cgImage, scale: source.scale, orientation: .up)
     }
 
     func textViewDidChange(_ textView: UITextView) {
@@ -458,12 +416,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         switch pan.state {
         case .changed:
             card.transform = CGAffineTransform(translationX: translation, y: 0)
-            blurView.transform = card.transform
         case .ended, .cancelled:
             let remove = translation < -100 && pan.state == .ended
             UIView.animate(withDuration: 0.2) {
                 self.card.transform = .identity
-                self.blurView.transform = .identity
             }
             if remove {
                 onRemove?()

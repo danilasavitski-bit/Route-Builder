@@ -132,42 +132,33 @@ final class ViewModelTests: XCTestCase {
     }
 
     func testBlurLeavesTheCardUnderTheFinger() {
-        let store = RouteDraftStore()
-        store.update {
-            $0.setMode(.multiStop)
-            $0.select(makeStop(id: "a", name: "Almond"))
-            $0.select(makeStop(id: "b", name: "Birch"))
-            $0.setInstructions(stopID: "a", text: "Ring the bell")
-            $0.setInstructions(stopID: "b", text: "Leave at the door")
-        }
-        let controller = InstructionsViewController(
-            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
-            store: store
-        )
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
+        let cell = InstructionCardCell(frame: CGRect(x: 0, y: 0, width: 390, height: 420))
+        let window = UIWindow(frame: cell.frame)
+        window.addSubview(cell)
         window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
+        cell.setActive(false)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
 
-        let collection = controller.view.subviews.compactMap { $0 as? UICollectionView }.first
-        let cell = collection?.cellForItem(at: IndexPath(item: 0, section: 0)) as? InstructionCardCell
-        cell?.setActive(false)
-
-        let text = cell.flatMap(textView(in:))
+        let text = textView(in: cell)
         var view: UIView? = text
         while let current = view {
             XCTAssertGreaterThan(current.alpha, 0.01)
             XCTAssertFalse(current.isHidden)
             view = current.superview
         }
-        let blurred = cell.map { imageViews(in: $0).contains { !$0.isHidden && $0.image != nil } } ?? false
-        XCTAssertTrue(blurred)
+        let blurred = effectViews(in: cell).first { $0.effect != nil }
+        XCTAssertNotNil(blurred)
+        XCTAssertFalse(blurred?.isUserInteractionEnabled ?? true)
+
+        cell.setActive(true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        XCTAssertFalse(effectViews(in: cell).contains { $0.effect != nil })
     }
 
-    private func imageViews(in view: UIView) -> [UIImageView] {
-        var found = view.subviews.compactMap { $0 as? UIImageView }
+    private func effectViews(in view: UIView) -> [UIVisualEffectView] {
+        var found = view.subviews.compactMap { $0 as? UIVisualEffectView }
         for subview in view.subviews {
-            found += imageViews(in: subview)
+            found += effectViews(in: subview)
         }
         return found
     }
