@@ -29,7 +29,7 @@ final class APIClientTests: XCTestCase {
             return (200, Data(body.utf8), [:])
         }
         let stops = try await makeClient().fetchStops(query: nil)
-        XCTAssertEqual(stops.map(\.packagesMax), [5, 6, 9, 9])
+        XCTAssertEqual(stops.map(\.packagesMax), [5, 6, 99, 99])
         XCTAssertEqual(recorded.map { self.page($0) }, ["1", "2"])
     }
 

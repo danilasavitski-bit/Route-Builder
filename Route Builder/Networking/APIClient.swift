@@ -181,7 +181,7 @@ private struct StopDTO: Decodable {
         if let string = try? container.decode(String.self, forKey: .packagesMax), let number = Int(string) {
             return number
         }
-        return 9
+        return 99
     }
 }
 
