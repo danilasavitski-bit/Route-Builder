@@ -7,15 +7,26 @@ enum SubmitState: Equatable {
     case succeeded(routeID: String)
 }
 
+struct DriverNotice: Equatable {
+    let stopID: String
+    let name: String
+    var status: String
+    var reason: String?
+}
+
 @MainActor
 final class InstructionsViewModel {
     private let api: DispatchAPI
     private let store: RouteDraftStore
     private var submitting = false
     private var pendingScrollID: String?
+    private var photoTasks: [String: Task<Void, Never>] = [:]
+    private var notifyGeneration = 0
 
     private(set) var submitState: SubmitState = .idle
     private(set) var invalidStopIDs: [String] = []
+    private(set) var notices: [DriverNotice] = []
+    private(set) var photos: [String: [StopPhoto]] = [:]
     var onChange: (() -> Void)?
 
     init(api: DispatchAPI, store: RouteDraftStore) {
@@ -31,8 +42,38 @@ final class InstructionsViewModel {
 
     func draftChanged() {
         guard case .succeeded = submitState else { return }
+        notifyGeneration += 1
+        notices = []
         submitState = .idle
         onChange?()
+    }
+
+    func loadPhotosIfNeeded(stopID: String) {
+        guard !stopID.hasPrefix("local_") else { return }
+        guard photos[stopID] == nil, photoTasks[stopID] == nil else { return }
+        photoTasks[stopID] = Task { [weak self] in
+            guard let self else { return }
+            let loaded = (try? await self.api.fetchPhotos(stopID: stopID)) ?? []
+            self.photos[stopID] = loaded
+            self.photoTasks[stopID] = nil
+            self.onChange?()
+        }
+    }
+
+    func attachDropOffPhoto(stopID: String, path: String) {
+        store.update { $0.setDropOffPhoto(stopID: stopID, path: path) }
+        onChange?()
+    }
+
+    func retryFailedNotices() async {
+        guard case .succeeded(let routeID) = submitState else { return }
+        let generation = notifyGeneration
+        let failedIDs = notices.filter { $0.status == "failed" }.map(\.stopID)
+        for stopID in failedIDs {
+            guard generation == notifyGeneration else { return }
+            guard let stop = store.draft.stops.first(where: { $0.stopID == stopID }) else { continue }
+            await sendNotice(routeID: routeID, stop: stop, generation: generation)
+        }
     }
 
     func instructionsChanged(stopID: String, text: String) {
@@ -70,10 +111,45 @@ final class InstructionsViewModel {
         defer { submitting = false }
         do {
             let created = try await api.createRoute(stops: store.draft.stops)
+            let generation = notifyGeneration
+            let stops = store.draft.stops
+            notices = stops.map {
+                DriverNotice(stopID: $0.stopID, name: $0.name, status: "sending", reason: nil)
+            }
             submitState = .succeeded(routeID: created.id)
+            onChange?()
+            for stop in stops {
+                guard generation == notifyGeneration else { return }
+                await sendNotice(routeID: created.id, stop: stop, generation: generation)
+            }
         } catch {
             submitState = .failed("Could not send the route. Try again.")
+            onChange?()
         }
+    }
+
+    private func sendNotice(routeID: String, stop: RouteStop, generation: Int) async {
+        guard generation == notifyGeneration else { return }
+        if let index = notices.firstIndex(where: { $0.stopID == stop.stopID }) {
+            notices[index].status = "sending"
+            notices[index].reason = nil
+            onChange?()
+        }
+        let result: NotifyResult
+        do {
+            result = try await api.notify(
+                routeID: routeID,
+                stopID: stop.stopID,
+                idempotencyKey: UUID().uuidString
+            )
+        } catch {
+            result = NotifyResult(stopID: stop.stopID, status: "failed", reason: "Could not reach the driver.")
+        }
+        guard generation == notifyGeneration else { return }
+        guard let index = notices.firstIndex(where: { $0.stopID == stop.stopID }) else { return }
+        let delivered = result.status == "sent"
+        notices[index].status = delivered ? "sent" : "failed"
+        notices[index].reason = delivered ? nil : (result.reason ?? "The driver was not notified.")
         onChange?()
     }
 }

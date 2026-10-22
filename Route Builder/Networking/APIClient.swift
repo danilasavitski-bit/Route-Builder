@@ -67,7 +67,7 @@ final class APIClient: DispatchAPI {
             }
         ]
         let body = try JSONSerialization.data(withJSONObject: payload)
-        let request = makeRequest(path: "v1/routes", method: "POST", body: body)
+        let request = makeRequest(url: endpoint(["v1", "routes"]), method: "POST", body: body)
         let (data, http) = try await send(request)
         let errorBody = try? JSONDecoder().decode(ErrorDTO.self, from: data)
         if http.statusCode == 422 {
@@ -80,6 +80,30 @@ final class APIClient: DispatchAPI {
         return CreatedRoute(id: created.id, status: created.status)
     }
 
+    func fetchPhotos(stopID: String) async throws -> [StopPhoto] {
+        let request = makeRequest(url: endpoint(["v1", "stops", stopID, "photos"]), method: "GET")
+        let (data, http) = try await send(request)
+        guard (200..<300).contains(http.statusCode) else {
+            let code = (try? JSONDecoder().decode(ErrorDTO.self, from: data))?.error ?? ""
+            throw APIError.http(status: http.statusCode, code: code)
+        }
+        let page = try JSONDecoder().decode(PhotoPageDTO.self, from: data)
+        return (page.items ?? []).map(\.photo)
+    }
+
+    func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
+        let body = try JSONSerialization.data(withJSONObject: ["stop_id": stopID])
+        var request = makeRequest(url: endpoint(["v1", "routes", routeID, "notify"]), method: "POST", body: body)
+        request.setValue(idempotencyKey, forHTTPHeaderField: "Idempotency-Key")
+        let (data, http) = try await send(request)
+        let errorBody = try? JSONDecoder().decode(ErrorDTO.self, from: data)
+        guard (200..<300).contains(http.statusCode) else {
+            throw APIError.http(status: http.statusCode, code: errorBody?.error ?? "")
+        }
+        let payload = try JSONDecoder().decode(NotifyDTO.self, from: data)
+        return NotifyResult(stopID: payload.stopID, status: payload.status, reason: payload.reason)
+    }
+
     private func fetchPage(page: Int, query: String?) async throws -> [Stop] {
         var items = [
             URLQueryItem(name: "page", value: String(page)),
@@ -88,7 +112,7 @@ final class APIClient: DispatchAPI {
         if let query, !query.isEmpty {
             items.append(URLQueryItem(name: "q", value: query))
         }
-        let request = makeRequest(path: "v1/stops", method: "GET", query: items)
+        let request = makeRequest(url: endpoint(["v1", "stops"]), method: "GET", query: items)
         let (data, http) = try await send(request)
         guard (200..<300).contains(http.statusCode) else {
             let code = (try? JSONDecoder().decode(ErrorDTO.self, from: data))?.error ?? ""
@@ -128,8 +152,13 @@ final class APIClient: DispatchAPI {
         return 0.4 * Double(attempt)
     }
 
-    private func makeRequest(path: String, method: String, query: [URLQueryItem] = [], body: Data? = nil) -> URLRequest {
-        let url = baseURL.appendingPathComponent(path)
+    private func endpoint(_ parts: [String]) -> URL {
+        parts.reduce(baseURL) { url, part in
+            url.appendingPathComponent(part)
+        }
+    }
+
+    private func makeRequest(url: URL, method: String, query: [URLQueryItem] = [], body: Data? = nil) -> URLRequest {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         if !query.isEmpty {
             components?.queryItems = query
@@ -182,6 +211,32 @@ private struct StopDTO: Decodable {
             return number
         }
         return 99
+    }
+}
+
+private struct PhotoPageDTO: Decodable {
+    let items: [PhotoDTO]?
+}
+
+private struct PhotoDTO: Decodable {
+    let id: String
+    let url: String?
+    let tag: String
+
+    var photo: StopPhoto {
+        StopPhoto(id: id, url: url.flatMap(URL.init(string:)), tag: tag)
+    }
+}
+
+private struct NotifyDTO: Decodable {
+    let stopID: String
+    let status: String
+    let reason: String?
+
+    enum CodingKeys: String, CodingKey {
+        case stopID = "stop_id"
+        case status
+        case reason
     }
 }
 

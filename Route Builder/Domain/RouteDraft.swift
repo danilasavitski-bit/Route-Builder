@@ -37,6 +37,7 @@ struct RouteStop: Equatable, Identifiable {
     let packagesMax: Int
     var packages: Int
     var instructions: String
+    var dropOffPhotoPath: String?
 
     init(stop: Stop) {
         stopID = stop.id
@@ -46,7 +47,29 @@ struct RouteStop: Equatable, Identifiable {
         packagesMax = stop.packagesMax
         packages = 1
         instructions = ""
+        dropOffPhotoPath = nil
     }
+}
+
+struct StopPhoto: Equatable, Identifiable {
+    let id: String
+    let url: URL?
+    let tag: String
+
+    var title: String {
+        switch tag {
+        case "entrance": return "Entrance"
+        case "parking": return "Parking"
+        case "back_door": return "Back door"
+        default: return tag
+        }
+    }
+}
+
+struct NotifyResult: Equatable {
+    let stopID: String
+    let status: String
+    let reason: String?
 }
 
 struct StopSection: Equatable {
@@ -123,6 +146,11 @@ struct RouteDraft: Equatable {
     mutating func setInstructions(stopID: String, text: String) {
         guard let index = stops.firstIndex(where: { $0.stopID == stopID }) else { return }
         stops[index].instructions = String(text.prefix(200))
+    }
+
+    mutating func setDropOffPhoto(stopID: String, path: String) {
+        guard let index = stops.firstIndex(where: { $0.stopID == stopID }) else { return }
+        stops[index].dropOffPhotoPath = path
     }
 
     mutating func remove(stopID: String) {

@@ -129,6 +129,33 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual((stops?.first?["instructions"] as? String)?.count, 200)
     }
 
+    func testNullPhotoURLIsKept() async throws {
+        stub { _ in
+            let body = """
+            {"items":[
+              {"id":"p0","url":null,"tag":"entrance","width":400,"height":250},
+              {"id":"p1","url":"https://picsum.photos/seed/a/400/250","tag":"parking"}
+            ]}
+            """
+            return (200, Data(body.utf8), [:])
+        }
+        let photos = try await makeClient().fetchPhotos(stopID: "stp_0001")
+        XCTAssertEqual(photos.map(\.id), ["p0", "p1"])
+        XCTAssertNil(photos[0].url)
+        XCTAssertEqual(photos[0].title, "Entrance")
+        XCTAssertEqual(photos[1].title, "Parking")
+        XCTAssertEqual(photos[1].url?.absoluteString, "https://picsum.photos/seed/a/400/250")
+    }
+
+    func testNotifyKeepsAFailedStatus() async throws {
+        stub { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Idempotency-Key"), "key-1")
+            return (200, Data(#"{"stop_id":"stp_1","status":"failed","reason":"carrier_rejected"}"#.utf8), [:])
+        }
+        let result = try await makeClient().notify(routeID: "rt_1", stopID: "stp_1", idempotencyKey: "key-1")
+        XCTAssertEqual(result, NotifyResult(stopID: "stp_1", status: "failed", reason: "carrier_rejected"))
+    }
+
     private static func bodyData(from request: URLRequest) -> Data {
         if let body = request.httpBody {
             return body

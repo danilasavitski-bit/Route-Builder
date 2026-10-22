@@ -73,6 +73,21 @@ final class ViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.submitState, .failed("Could not send the route. Try again."))
     }
 
+    func testFailedNotifyRetriesWithANewKey() async {
+        let api = FakeAPI()
+        api.notifyResult = NotifyResult(stopID: "a", status: "failed", reason: "carrier_rejected")
+        let viewModel = InstructionsViewModel(api: api, store: filledStore())
+        await viewModel.finish()
+        XCTAssertEqual(viewModel.submitState, .succeeded(routeID: "rt_2000"))
+        XCTAssertEqual(viewModel.notices.map(\.status), ["failed"])
+        XCTAssertEqual(viewModel.notices.first?.reason, "carrier_rejected")
+        api.notifyResult = NotifyResult(stopID: "a", status: "sent", reason: nil)
+        await viewModel.retryFailedNotices()
+        XCTAssertEqual(viewModel.notices.map(\.status), ["sent"])
+        XCTAssertEqual(api.notifyKeys.count, 2)
+        XCTAssertNotEqual(api.notifyKeys[0], api.notifyKeys[1])
+    }
+
     func testEditingTheDraftClearsSuccess() async {
         let api = FakeAPI()
         let store = filledStore()
@@ -109,15 +124,24 @@ private final class FakeAPI: DispatchAPI {
     var queries: [String?] = []
     var createResult: Result<CreatedRoute, Error> = .success(CreatedRoute(id: "rt_2000", status: "draft"))
     var createCount = 0
+    var notifyResult = NotifyResult(stopID: "", status: "sent", reason: nil)
+    var notifyKeys: [String] = []
 
     func fetchStops(query: String?) async throws -> [Stop] {
         queries.append(query)
         return try (stopsResult[query ?? ""] ?? .success([])).get()
     }
 
+    func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
+
     func createRoute(stops: [RouteStop]) async throws -> CreatedRoute {
         createCount += 1
         return try createResult.get()
+    }
+
+    func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
+        notifyKeys.append(idempotencyKey)
+        return NotifyResult(stopID: stopID, status: notifyResult.status, reason: notifyResult.reason)
     }
 }
 
@@ -127,6 +151,12 @@ private final class GateAPI: DispatchAPI {
     private var continuations: [CheckedContinuation<CreatedRoute, Error>] = []
 
     func fetchStops(query: String?) async throws -> [Stop] { [] }
+
+    func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
+
+    func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
+        NotifyResult(stopID: stopID, status: "sent", reason: nil)
+    }
 
     func createRoute(stops: [RouteStop]) async throws -> CreatedRoute {
         createCount += 1
