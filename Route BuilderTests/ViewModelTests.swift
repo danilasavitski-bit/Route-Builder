@@ -133,6 +133,28 @@ final class ViewModelTests: XCTestCase {
         XCTAssertEqual(refreshes, 1)
     }
 
+    func testInstructionCardShowsTheUpdatedPackageCount() async {
+        let store = RouteDraftStore()
+        store.update {
+            $0.select(makeStop(id: "a", name: "Almond"))
+            $0.setInstructions(stopID: "a", text: "Ring the bell")
+        }
+        let controller = InstructionsViewController(
+            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+            store: store
+        )
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+        XCTAssertNotNil(label(in: controller.view, text: "1×"))
+
+        store.update { $0.setPackages(stopID: "a", packages: 3) }
+        controller.render()
+        XCTAssertNil(label(in: controller.view, text: "1×"))
+        XCTAssertNotNil(label(in: controller.view, text: "3×"))
+    }
+
     func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
         let store = RouteDraftStore()
         store.update {
@@ -225,6 +247,14 @@ final class ViewModelTests: XCTestCase {
         if let textView = view as? UITextView { return textView }
         for subview in view.subviews {
             if let textView = textView(in: subview) { return textView }
+        }
+        return nil
+    }
+
+    private func label(in view: UIView, text: String) -> UILabel? {
+        if let label = view as? UILabel, label.text == text { return label }
+        for subview in view.subviews {
+            if let label = label(in: subview, text: text) { return label }
         }
         return nil
     }

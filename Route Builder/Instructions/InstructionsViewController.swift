@@ -194,7 +194,7 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         } else {
             for case let cell as InstructionCardCell in collectionView.visibleCells {
                 guard let stop = stops.first(where: { $0.stopID == cell.stopID }) else { continue }
-                cell.setInvalid(viewModel.invalidStopIDs.contains(cell.stopID))
+                cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(cell.stopID))
                 cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
                 cell.showDropOff(path: stop.dropOffPhotoPath)
             }
