@@ -47,15 +47,19 @@ final class ViewModelTests: XCTestCase {
         await viewModel.load()
         viewModel.searchTextChanged("ZZZ")
         await waitUntil { viewModel.sections.isEmpty && viewModel.query == "ZZZ" }
-        let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
-        XCTAssertNotNil(label(in: controller.view, text: "No stop found"))
-        XCTAssertNotNil(label(in: controller.view, text: "Try another street"))
-        XCTAssertNotNil(buttonTitled("Enter an address", in: controller.view))
-        XCTAssertNil(buttonTitled("Try another street or enter an address manually", in: controller.view))
+        autoreleasepool {
+            let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.layoutIfNeeded()
+            XCTAssertNotNil(label(in: controller.view, text: "No stop found"))
+            XCTAssertNotNil(label(in: controller.view, text: "Try another street"))
+            XCTAssertNotNil(buttonTitled("Enter an address", in: controller.view))
+            XCTAssertNil(buttonTitled("Try another street or enter an address manually", in: controller.view))
+            window.isHidden = true
+            window.rootViewController = nil
+        }
     }
 
     func testFinishBlocksEmptyInstructions() async {
@@ -99,6 +103,26 @@ final class ViewModelTests: XCTestCase {
         await first.value
         await second.value
         XCTAssertEqual(api.createCount, 1)
+        XCTAssertEqual(viewModel.submitState, .succeeded(routeID: "rt_1"))
+    }
+
+    func testFinishCanStartAgainWhileNoticesAreStillSending() async {
+        let api = SplitGateAPI()
+        let store = filledStore()
+        let viewModel = InstructionsViewModel(api: api, store: store)
+        let first = Task { await viewModel.finish() }
+        await waitUntil { api.createCount == 1 }
+        api.resumeCreate()
+        await waitUntil { api.notifyStarted == 1 }
+        viewModel.draftChanged()
+        let second = Task { await viewModel.finish() }
+        await waitUntil { api.createCount == 2 }
+        XCTAssertEqual(api.createCount, 2)
+        api.resumeCreate()
+        await waitUntil { api.notifyStarted == 2 }
+        api.resumeNotifies()
+        await first.value
+        await second.value
         XCTAssertEqual(viewModel.submitState, .succeeded(routeID: "rt_1"))
     }
 
@@ -159,20 +183,24 @@ final class ViewModelTests: XCTestCase {
             $0.select(makeStop(id: "a", name: "Almond"))
             $0.setInstructions(stopID: "a", text: "Ring the bell")
         }
-        let controller = InstructionsViewController(
-            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
-            store: store
-        )
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
-        XCTAssertNotNil(label(in: controller.view, text: "1×"))
+        autoreleasepool {
+            let controller = InstructionsViewController(
+                viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+                store: store
+            )
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.layoutIfNeeded()
+            XCTAssertNotNil(label(in: controller.view, text: "1×"))
 
-        store.update { $0.setPackages(stopID: "a", packages: 3) }
-        controller.render()
-        XCTAssertNil(label(in: controller.view, text: "1×"))
-        XCTAssertNotNil(label(in: controller.view, text: "3×"))
+            store.update { $0.setPackages(stopID: "a", packages: 3) }
+            controller.render()
+            XCTAssertNil(label(in: controller.view, text: "1×"))
+            XCTAssertNotNil(label(in: controller.view, text: "3×"))
+            window.isHidden = true
+            window.rootViewController = nil
+        }
     }
 
     func testRemoveButtonDropsTheStop() async {
@@ -181,18 +209,22 @@ final class ViewModelTests: XCTestCase {
             $0.select(makeStop(id: "a", name: "Almond"))
             $0.setInstructions(stopID: "a", text: "Ring the bell")
         }
-        let controller = InstructionsViewController(
-            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
-            store: store
-        )
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
-        let button = buttonTitled("Remove from route", in: controller.view)
-        XCTAssertNotNil(button)
-        button?.sendActions(for: .touchUpInside)
-        XCTAssertTrue(store.draft.stops.isEmpty)
+        autoreleasepool {
+            let controller = InstructionsViewController(
+                viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+                store: store
+            )
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.layoutIfNeeded()
+            let button = buttonTitled("Remove from route", in: controller.view)
+            XCTAssertNotNil(button)
+            button?.sendActions(for: .touchUpInside)
+            XCTAssertTrue(store.draft.stops.isEmpty)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
     }
 
     func testSectionIndexSitsOnTheTrailingEdge() async {
@@ -201,17 +233,21 @@ final class ViewModelTests: XCTestCase {
         let store = RouteDraftStore()
         let viewModel = StopsViewModel(api: api, store: store, debounceNanoseconds: 0)
         await viewModel.load()
-        let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
-        let index = stackOfLetters(in: controller.view)
-        XCTAssertNotNil(index)
-        XCTAssertGreaterThan(index?.frame.minX ?? 0, 360)
+        autoreleasepool {
+            let controller = StopsViewController(viewModel: viewModel, store: store, onContinue: {})
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.layoutIfNeeded()
+            let index = stackOfLetters(in: controller.view)
+            XCTAssertNotNil(index)
+            XCTAssertGreaterThan(index?.frame.minX ?? 0, 360)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
     }
 
-    func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
+    func testInstructionCardsKeepTheDesignHeightAndCanScroll() async {
         let store = RouteDraftStore()
         store.update {
             $0.setMode(.multiStop)
@@ -220,62 +256,80 @@ final class ViewModelTests: XCTestCase {
             $0.setInstructions(stopID: "a", text: "Ring the bell")
             $0.setInstructions(stopID: "b", text: "Leave at the door")
         }
-        let controller = InstructionsViewController(
-            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
-            store: store
-        )
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.view.layoutIfNeeded()
+        autoreleasepool {
+            let controller = InstructionsViewController(
+                viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+                store: store
+            )
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
+            controller.view.layoutIfNeeded()
 
-        let collection = controller.view.subviews.compactMap { $0 as? UICollectionView }.first
-        let height = collection?.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))?.frame.height ?? 0
-        let textView = collection?.cellForItem(at: IndexPath(item: 0, section: 0)).flatMap(textView(in:))
-        XCTAssertGreaterThan(height, 300)
-        XCTAssertLessThan(height, (collection?.bounds.height ?? 0) - 80)
-        XCTAssertGreaterThan(collection?.contentSize.height ?? 0, (collection?.bounds.height ?? 0) + 1)
-        XCTAssertEqual(textView?.isScrollEnabled, false)
-        XCTAssertEqual(textView?.panGestureRecognizer.isEnabled, false)
-        collection?.setContentOffset(CGPoint(x: 0, y: 120), animated: false)
-        controller.view.layoutIfNeeded()
-        XCTAssertEqual(collection?.contentOffset.y ?? -1, 120)
+            let collection = controller.view.subviews.compactMap { $0 as? UICollectionView }.first
+            let height = collection?.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))?.frame.height ?? 0
+            let textView = collection?.cellForItem(at: IndexPath(item: 0, section: 0)).flatMap(textView(in:))
+            XCTAssertGreaterThan(height, 300)
+            XCTAssertLessThan(height, (collection?.bounds.height ?? 0) - 80)
+            XCTAssertGreaterThan(collection?.contentSize.height ?? 0, (collection?.bounds.height ?? 0) + 1)
+            XCTAssertEqual(textView?.isScrollEnabled, false)
+            XCTAssertEqual(textView?.panGestureRecognizer.isEnabled, false)
+            collection?.setContentOffset(CGPoint(x: 0, y: 120), animated: false)
+            controller.view.layoutIfNeeded()
+            XCTAssertEqual(collection?.contentOffset.y ?? -1, 120)
+            window.isHidden = true
+            window.rootViewController = nil
+        }
     }
 
     func testBlurLeavesTheCardUnderTheFinger() {
-        let cell = InstructionCardCell(frame: CGRect(x: 0, y: 0, width: 390, height: 420))
-        let window = UIWindow(frame: cell.frame)
-        window.addSubview(cell)
-        window.makeKeyAndVisible()
-        cell.setActive(false)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        autoreleasepool {
+            let cell = InstructionCardCell(frame: CGRect(x: 0, y: 0, width: 390, height: 420))
+            let window = UIWindow(frame: cell.frame)
+            window.addSubview(cell)
+            window.makeKeyAndVisible()
+            cell.setActive(false)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
 
-        let text = textView(in: cell)
-        var view: UIView? = text
-        while let current = view {
-            XCTAssertGreaterThan(current.alpha, 0.01)
-            XCTAssertFalse(current.isHidden)
-            view = current.superview
+            let text = textView(in: cell)
+            var view: UIView? = text
+            while let current = view {
+                XCTAssertGreaterThan(current.alpha, 0.01)
+                XCTAssertFalse(current.isHidden)
+                view = current.superview
+            }
+            let blurred = effectViews(in: cell).first { $0.effect != nil }
+            XCTAssertNotNil(blurred)
+            XCTAssertFalse(blurred?.isUserInteractionEnabled ?? true)
+
+            cell.setActive(true)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            XCTAssertFalse(effectViews(in: cell).contains { $0.effect != nil })
+            window.isHidden = true
+            window.rootViewController = nil
         }
-        let blurred = effectViews(in: cell).first { $0.effect != nil }
-        XCTAssertNotNil(blurred)
-        XCTAssertFalse(blurred?.isUserInteractionEnabled ?? true)
-
-        cell.setActive(true)
-        RunLoop.main.run(until: Date().addingTimeInterval(0.4))
-        XCTAssertFalse(effectViews(in: cell).contains { $0.effect != nil })
     }
 
     func testDropOffButtonUsesOneLayout() {
-        let narrow = laidOutCard(width: 220)
-        let wide = laidOutCard(width: 390)
-        XCTAssertEqual(dropOffTitle(in: narrow)?.frame.minX ?? -1, 42, accuracy: 0.5)
-        XCTAssertEqual(dropOffTitle(in: wide)?.frame.minX ?? -1, 42, accuracy: 0.5)
+        autoreleasepool {
+            let narrow = laidOutCard(width: 220)
+            let wide = laidOutCard(width: 390)
+            XCTAssertEqual(dropOffTitle(in: narrow)?.frame.minX ?? -1, 42, accuracy: 0.5)
+            XCTAssertEqual(dropOffTitle(in: wide)?.frame.minX ?? -1, 42, accuracy: 0.5)
+            for window in hostedWindows {
+                window.isHidden = true
+                window.rootViewController = nil
+            }
+            hostedWindows.removeAll()
+        }
     }
+
+    private var hostedWindows: [UIWindow] = []
 
     private func laidOutCard(width: CGFloat) -> InstructionCardCell {
         let cell = InstructionCardCell(frame: .zero)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 600))
+        hostedWindows.append(window)
         window.addSubview(cell)
         window.makeKeyAndVisible()
         cell.frame = CGRect(x: 0, y: 0, width: width, height: 520)
@@ -376,8 +430,7 @@ final class ViewModelTests: XCTestCase {
     }
 }
 
-@MainActor
-private final class FakeAPI: DispatchAPI {
+nonisolated private final class FakeAPI: DispatchAPI {
     var stopsResult: [String: Result<[Stop], Error>] = [:]
     var queries: [String?] = []
     var createResult: Result<CreatedRoute, Error> = .success(CreatedRoute(id: "rt_2000", status: "draft"))
@@ -439,6 +492,50 @@ private final class GateAPI: DispatchAPI {
         continuations.removeAll()
         for continuation in pending {
             continuation.resume(returning: CreatedRoute(id: "rt_1", status: "draft"))
+        }
+    }
+}
+
+@MainActor
+private final class SplitGateAPI: DispatchAPI {
+    var createCount = 0
+    var notifyStarted = 0
+    private var createContinuations: [CheckedContinuation<CreatedRoute, Error>] = []
+    private var notifyContinuations: [CheckedContinuation<NotifyResult, Error>] = []
+
+    func fetchStops(query: String?) async throws -> [Stop] { [] }
+
+    func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
+
+    func fetchImageData(from url: URL) async throws -> Data { Data() }
+
+    func createRoute(stops: [RouteStop]) async throws -> CreatedRoute {
+        createCount += 1
+        return try await withCheckedThrowingContinuation { continuation in
+            createContinuations.append(continuation)
+        }
+    }
+
+    func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
+        notifyStarted += 1
+        return try await withCheckedThrowingContinuation { continuation in
+            notifyContinuations.append(continuation)
+        }
+    }
+
+    func resumeCreate() {
+        let pending = createContinuations
+        createContinuations.removeAll()
+        for continuation in pending {
+            continuation.resume(returning: CreatedRoute(id: "rt_1", status: "draft"))
+        }
+    }
+
+    func resumeNotifies() {
+        let pending = notifyContinuations
+        notifyContinuations.removeAll()
+        for continuation in pending {
+            continuation.resume(returning: NotifyResult(stopID: "a", status: "sent", reason: nil))
         }
     }
 }

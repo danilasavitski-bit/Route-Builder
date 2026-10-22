@@ -144,9 +144,6 @@ final class APIClient: DispatchAPI {
                 if error is CancellationError || (error as? URLError)?.code == .cancelled {
                     throw error
                 }
-                if (error as NSError).domain == "Swift.CancellationError" {
-                    throw CancellationError()
-                }
                 throw APIError.transport
             }
             guard let http = response as? HTTPURLResponse else {

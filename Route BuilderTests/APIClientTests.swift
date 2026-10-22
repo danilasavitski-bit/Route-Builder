@@ -166,11 +166,24 @@ final class APIClientTests: XCTestCase {
     }
 
     func testCancelledFetchIsNotATransportError() async {
-        stub { _ in throw CancellationError() }
+        stub { _ in throw URLError(.cancelled) }
         do {
             _ = try await makeClient().fetchStops(query: nil)
             XCTFail("Expected cancellation")
-        } catch is CancellationError {
+        } catch let error as URLError {
+            XCTAssertEqual(error.code, .cancelled)
+        } catch {
+            XCTFail("Unexpected \(error)")
+        }
+    }
+
+    func testOfflineFetchIsATransportError() async {
+        stub { _ in throw URLError(.notConnectedToInternet) }
+        do {
+            _ = try await makeClient().fetchStops(query: nil)
+            XCTFail("Expected transport error")
+        } catch let error as APIError {
+            XCTAssertEqual(error, .transport)
         } catch {
             XCTFail("Unexpected \(error)")
         }

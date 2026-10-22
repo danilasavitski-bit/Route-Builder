@@ -31,6 +31,7 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
     private var dotHeights: [NSLayoutConstraint] = []
     private var focusedStopID: String?
     private var renderedIDs: [String] = []
+    private var renderedStops: [RouteStop] = []
     private var laidOutWidth: CGFloat = 0
     private var heightCache: [String: CGFloat] = [:]
     private let sizingCell = InstructionCardCell(frame: .zero)
@@ -187,11 +188,13 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         if ids != renderedIDs {
             let page = min(nearestIndex(), max(0, ids.count - 1))
             renderedIDs = ids
+            renderedStops = stops
             heightCache.removeAll()
             collectionView.reloadData()
             collectionView.layoutIfNeeded()
             align(to: page, animated: false)
         } else {
+            renderedStops = stops
             for case let cell as InstructionCardCell in collectionView.visibleCells {
                 guard let stop = stops.first(where: { $0.stopID == cell.stopID }) else { continue }
                 cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(cell.stopID))
@@ -269,10 +272,10 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
         sizeForItemAt indexPath: IndexPath
     ) -> CGSize {
         let width = collectionView.bounds.width
-        guard width > 1, store.draft.stops.indices.contains(indexPath.item) else {
+        guard width > 1, renderedStops.indices.contains(indexPath.item) else {
             return CGSize(width: max(width, 1), height: 1)
         }
-        let stop = store.draft.stops[indexPath.item]
+        let stop = renderedStops[indexPath.item]
         let key = [
             stop.stopID,
             stop.instructions,
@@ -379,12 +382,13 @@ final class InstructionsViewController: UIViewController, UICollectionViewDataSo
     }
 
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        store.draft.stops.count
+        renderedStops.count
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: InstructionCardCell.reuseID, for: indexPath) as! InstructionCardCell
-        let stop = store.draft.stops[indexPath.item]
+        guard renderedStops.indices.contains(indexPath.item) else { return cell }
+        let stop = renderedStops[indexPath.item]
         cell.configure(stop: stop, invalid: viewModel.invalidStopIDs.contains(stop.stopID))
         cell.showDeliveryPhotos(viewModel.photos[stop.stopID], local: stop.stopID.hasPrefix("local_"))
         cell.loadImage = { [weak self] url in

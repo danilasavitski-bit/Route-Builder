@@ -127,9 +127,9 @@ final class InstructionsViewModel {
         invalidStopIDs = []
         onChange?()
         let posted = store.draft.stops
-        defer { submitting = false }
         do {
             let created = try await api.createRoute(stops: posted)
+            submitting = false
             let generation = notifyGeneration
             notices = posted.map {
                 DriverNotice(stopID: $0.stopID, name: $0.name, status: "sending", reason: nil)
@@ -141,6 +141,7 @@ final class InstructionsViewModel {
                 await sendNotice(routeID: created.id, stopID: stop.stopID, generation: generation)
             }
         } catch {
+            submitting = false
             submitState = .failed("Could not send the route. Try again.")
             onChange?()
         }
