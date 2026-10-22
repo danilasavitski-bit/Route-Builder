@@ -155,6 +155,26 @@ final class ViewModelTests: XCTestCase {
         XCTAssertNotNil(label(in: controller.view, text: "3×"))
     }
 
+    func testRemoveButtonDropsTheStop() async {
+        let store = RouteDraftStore()
+        store.update {
+            $0.select(makeStop(id: "a", name: "Almond"))
+            $0.setInstructions(stopID: "a", text: "Ring the bell")
+        }
+        let controller = InstructionsViewController(
+            viewModel: InstructionsViewModel(api: FakeAPI(), store: store),
+            store: store
+        )
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        controller.view.layoutIfNeeded()
+        let button = buttonTitled("Remove from route", in: controller.view)
+        XCTAssertNotNil(button)
+        button?.sendActions(for: .touchUpInside)
+        XCTAssertTrue(store.draft.stops.isEmpty)
+    }
+
     func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
         let store = RouteDraftStore()
         store.update {
@@ -255,6 +275,14 @@ final class ViewModelTests: XCTestCase {
         if let label = view as? UILabel, label.text == text { return label }
         for subview in view.subviews {
             if let label = label(in: subview, text: text) { return label }
+        }
+        return nil
+    }
+
+    private func buttonTitled(_ title: String, in view: UIView) -> UIButton? {
+        if let button = view as? UIButton, button.currentTitle == title { return button }
+        for subview in view.subviews {
+            if let button = buttonTitled(title, in: subview) { return button }
         }
         return nil
     }

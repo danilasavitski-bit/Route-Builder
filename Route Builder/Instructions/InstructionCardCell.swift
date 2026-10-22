@@ -23,6 +23,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     private let clearButton = UIButton(type: .system)
     private let dropOffImage = UIImageView()
     private let cameraButton = DropOffButton()
+    private let removeButton = UIButton(type: .system)
     private let footerLabel = UILabel()
     private let blurView = UIVisualEffectView(effect: nil)
     private let removeStrip = UILabel()
@@ -56,6 +57,8 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         nameLabel.textColor = Theme.text
         countLabel.font = Theme.mono(13)
         countLabel.textColor = Theme.teal
+        nameLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        countLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
         let nameStack = UIStackView(arrangedSubviews: [nameLabel, countLabel])
         nameStack.axis = .horizontal
         nameStack.spacing = 10
@@ -126,6 +129,12 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
 
         cameraButton.addTarget(self, action: #selector(cameraTapped), for: .touchUpInside)
 
+        removeButton.setTitle("Remove from route", for: .normal)
+        removeButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        removeButton.setTitleColor(Theme.swipe, for: .normal)
+        removeButton.contentHorizontalAlignment = .leading
+        removeButton.addTarget(self, action: #selector(removeTapped), for: .touchUpInside)
+
         footerLabel.text = "Instructions save automatically and go to the driver when you finish"
         footerLabel.font = .systemFont(ofSize: 10.5)
         footerLabel.textColor = Theme.secondary
@@ -133,7 +142,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         footerLabel.numberOfLines = 0
 
         let stack = UIStackView(arrangedSubviews: [
-            nameRow, addressLabel, photosTitle, photosRow, textView, errorRow, metaRow, dropOffImage, cameraButton, footerLabel
+            nameRow, addressLabel, photosTitle, photosRow, textView, errorRow, metaRow, dropOffImage, cameraButton, removeButton, footerLabel
         ])
         stack.axis = .vertical
         stack.spacing = 6
@@ -394,6 +403,10 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
 
     @objc private func cameraTapped() {
         onCamera?()
+    }
+
+    @objc private func removeTapped() {
+        onRemove?()
     }
 
     @objc private func handlePan(_ pan: UIPanGestureRecognizer) {
