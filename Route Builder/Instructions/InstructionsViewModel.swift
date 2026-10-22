@@ -71,8 +71,7 @@ final class InstructionsViewModel {
         let failedIDs = notices.filter { $0.status == "failed" }.map(\.stopID)
         for stopID in failedIDs {
             guard generation == notifyGeneration else { return }
-            guard let stop = store.draft.stops.first(where: { $0.stopID == stopID }) else { continue }
-            await sendNotice(routeID: routeID, stop: stop, generation: generation)
+            await sendNotice(routeID: routeID, stopID: stopID, generation: generation)
         }
     }
 
@@ -108,19 +107,19 @@ final class InstructionsViewModel {
         submitState = .sending
         invalidStopIDs = []
         onChange?()
+        let posted = store.draft.stops
         defer { submitting = false }
         do {
-            let created = try await api.createRoute(stops: store.draft.stops)
+            let created = try await api.createRoute(stops: posted)
             let generation = notifyGeneration
-            let stops = store.draft.stops
-            notices = stops.map {
+            notices = posted.map {
                 DriverNotice(stopID: $0.stopID, name: $0.name, status: "sending", reason: nil)
             }
             submitState = .succeeded(routeID: created.id)
             onChange?()
-            for stop in stops {
+            for stop in posted {
                 guard generation == notifyGeneration else { return }
-                await sendNotice(routeID: created.id, stop: stop, generation: generation)
+                await sendNotice(routeID: created.id, stopID: stop.stopID, generation: generation)
             }
         } catch {
             submitState = .failed("Could not send the route. Try again.")
@@ -128,9 +127,9 @@ final class InstructionsViewModel {
         }
     }
 
-    private func sendNotice(routeID: String, stop: RouteStop, generation: Int) async {
+    private func sendNotice(routeID: String, stopID: String, generation: Int) async {
         guard generation == notifyGeneration else { return }
-        if let index = notices.firstIndex(where: { $0.stopID == stop.stopID }) {
+        if let index = notices.firstIndex(where: { $0.stopID == stopID }) {
             notices[index].status = "sending"
             notices[index].reason = nil
             onChange?()
@@ -139,14 +138,14 @@ final class InstructionsViewModel {
         do {
             result = try await api.notify(
                 routeID: routeID,
-                stopID: stop.stopID,
+                stopID: stopID,
                 idempotencyKey: UUID().uuidString
             )
         } catch {
-            result = NotifyResult(stopID: stop.stopID, status: "failed", reason: "Could not reach the driver.")
+            result = NotifyResult(stopID: stopID, status: "failed", reason: "Could not reach the driver.")
         }
         guard generation == notifyGeneration else { return }
-        guard let index = notices.firstIndex(where: { $0.stopID == stop.stopID }) else { return }
+        guard let index = notices.firstIndex(where: { $0.stopID == stopID }) else { return }
         let delivered = result.status == "sent"
         notices[index].status = delivered ? "sent" : "failed"
         notices[index].reason = delivered ? nil : (result.reason ?? "The driver was not notified.")

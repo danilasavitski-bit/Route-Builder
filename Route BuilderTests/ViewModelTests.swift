@@ -49,6 +49,23 @@ final class ViewModelTests: XCTestCase {
         XCTAssertEqual(viewModel.consumeScrollRequest(), "a")
     }
 
+    func testNotifyUsesTheStopsThatWerePosted() async {
+        let api = GateAPI()
+        let store = filledStore()
+        let viewModel = InstructionsViewModel(api: api, store: store)
+        let task = Task { await viewModel.finish() }
+        await waitUntil { api.createCount == 1 }
+        store.update {
+            $0.setMode(.multiStop)
+            $0.select(makeStop(id: "b", name: "Birch"))
+        }
+        api.resumeSuccess()
+        await task.value
+        XCTAssertEqual(api.postedStopIDs, ["a"])
+        XCTAssertEqual(viewModel.notices.map(\.stopID), ["a"])
+        XCTAssertEqual(api.notifiedStopIDs, ["a"])
+    }
+
     func testOverlappingFinishSendsOneRoute() async {
         let api = GateAPI()
         let store = filledStore()
@@ -272,6 +289,8 @@ private final class FakeAPI: DispatchAPI {
 @MainActor
 private final class GateAPI: DispatchAPI {
     var createCount = 0
+    var postedStopIDs: [String] = []
+    var notifiedStopIDs: [String] = []
     private var continuations: [CheckedContinuation<CreatedRoute, Error>] = []
 
     func fetchStops(query: String?) async throws -> [Stop] { [] }
@@ -279,10 +298,12 @@ private final class GateAPI: DispatchAPI {
     func fetchPhotos(stopID: String) async throws -> [StopPhoto] { [] }
 
     func notify(routeID: String, stopID: String, idempotencyKey: String) async throws -> NotifyResult {
-        NotifyResult(stopID: stopID, status: "sent", reason: nil)
+        notifiedStopIDs.append(stopID)
+        return NotifyResult(stopID: stopID, status: "sent", reason: nil)
     }
 
     func createRoute(stops: [RouteStop]) async throws -> CreatedRoute {
+        postedStopIDs = stops.map(\.stopID)
         createCount += 1
         return try await withCheckedThrowingContinuation { continuation in
             continuations.append(continuation)
