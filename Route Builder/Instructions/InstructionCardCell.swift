@@ -22,8 +22,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
     private let counterLabel = UILabel()
     private let clearButton = UIButton(type: .system)
     private let dropOffImage = UIImageView()
-    private let cameraButton = UIButton(type: .system)
-    private let cameraBorder = CAShapeLayer()
+    private let cameraButton = DropOffButton()
     private let footerLabel = UILabel()
     private let blurView = UIVisualEffectView(effect: nil)
     private let removeStrip = UILabel()
@@ -125,19 +124,7 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         dropOffImage.layer.cornerRadius = 8
         dropOffImage.isHidden = true
 
-        cameraButton.setTitle("  Photo of the drop-off point", for: .normal)
-        cameraButton.setImage(UIImage(systemName: "camera"), for: .normal)
-        cameraButton.tintColor = Theme.secondary
-        cameraButton.setTitleColor(Theme.text, for: .normal)
-        cameraButton.titleLabel?.font = .systemFont(ofSize: 14)
-        cameraButton.contentHorizontalAlignment = .left
-        cameraButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 12)
         cameraButton.addTarget(self, action: #selector(cameraTapped), for: .touchUpInside)
-        cameraBorder.strokeColor = Theme.hairline.cgColor
-        cameraBorder.fillColor = UIColor.white.cgColor
-        cameraBorder.lineWidth = 1.5
-        cameraBorder.lineDashPattern = [5, 4]
-        cameraButton.layer.insertSublayer(cameraBorder, at: 0)
 
         footerLabel.text = "Instructions save automatically and go to the driver when you finish"
         footerLabel.font = .systemFont(ofSize: 10.5)
@@ -244,8 +231,6 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        cameraBorder.frame = cameraButton.bounds
-        cameraBorder.path = UIBezierPath(roundedRect: cameraButton.bounds, cornerRadius: 10).cgPath
         card.layer.shadowPath = UIBezierPath(roundedRect: card.bounds, cornerRadius: 16).cgPath
     }
 
@@ -427,6 +412,65 @@ final class InstructionCardCell: UICollectionViewCell, UITextViewDelegate, UIGes
         default:
             break
         }
+    }
+}
+
+private final class DropOffButton: UIControl {
+    private let border = CAShapeLayer()
+    private let icon = UIImageView()
+    private let titleLabel = UILabel()
+    private let chevron = UIImageView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .white
+        layer.cornerRadius = 10
+        clipsToBounds = true
+        border.strokeColor = Theme.hairline.cgColor
+        border.fillColor = UIColor.clear.cgColor
+        border.lineWidth = 1.5
+        border.lineDashPattern = [5, 4]
+        layer.addSublayer(border)
+
+        let symbol = UIImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        icon.image = UIImage(systemName: "camera", withConfiguration: symbol)
+        icon.tintColor = Theme.secondary
+        icon.contentMode = .scaleAspectFit
+        titleLabel.text = "Photo of the drop-off point"
+        titleLabel.font = .systemFont(ofSize: 14)
+        titleLabel.textColor = Theme.text
+        chevron.image = UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold))
+        chevron.tintColor = Theme.secondary
+        chevron.contentMode = .scaleAspectFit
+        for view in [icon, titleLabel, chevron] {
+            view.isUserInteractionEnabled = false
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            icon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 20),
+            icon.heightAnchor.constraint(equalToConstant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: icon.trailingAnchor, constant: 10),
+            titleLabel.centerYAnchor.constraint(equalTo: centerYAnchor),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: chevron.leadingAnchor, constant: -10),
+            chevron.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            chevron.centerYAnchor.constraint(equalTo: centerYAnchor),
+            chevron.widthAnchor.constraint(equalToConstant: 12),
+            chevron.heightAnchor.constraint(equalToConstant: 12)
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        border.frame = bounds
+        let rect = bounds.insetBy(dx: border.lineWidth / 2, dy: border.lineWidth / 2)
+        border.path = UIBezierPath(roundedRect: rect, cornerRadius: 10 - border.lineWidth / 2).cgPath
     }
 }
 

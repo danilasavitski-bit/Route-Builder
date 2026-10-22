@@ -155,6 +155,31 @@ final class ViewModelTests: XCTestCase {
         XCTAssertFalse(effectViews(in: cell).contains { $0.effect != nil })
     }
 
+    func testDropOffButtonUsesOneLayout() {
+        let narrow = laidOutCard(width: 220)
+        let wide = laidOutCard(width: 390)
+        XCTAssertEqual(dropOffTitle(in: narrow)?.frame.minX ?? -1, 42, accuracy: 0.5)
+        XCTAssertEqual(dropOffTitle(in: wide)?.frame.minX ?? -1, 42, accuracy: 0.5)
+    }
+
+    private func laidOutCard(width: CGFloat) -> InstructionCardCell {
+        let cell = InstructionCardCell(frame: .zero)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: width, height: 600))
+        window.addSubview(cell)
+        window.makeKeyAndVisible()
+        cell.frame = CGRect(x: 0, y: 0, width: width, height: 520)
+        cell.layoutIfNeeded()
+        return cell
+    }
+
+    private func dropOffTitle(in view: UIView) -> UILabel? {
+        if let label = view as? UILabel, label.text == "Photo of the drop-off point" { return label }
+        for subview in view.subviews {
+            if let label = dropOffTitle(in: subview) { return label }
+        }
+        return nil
+    }
+
     private func effectViews(in view: UIView) -> [UIVisualEffectView] {
         var found = view.subviews.compactMap { $0 as? UIVisualEffectView }
         for subview in view.subviews {
