@@ -7,12 +7,13 @@ enum StopsLoadState: Equatable {
 }
 
 @MainActor
-final class StopsViewModel {
+final class StopsViewModel: RouteDraftListener {
     private let api: DispatchAPI
     private let store: RouteDraftStore
     private let debounceNanoseconds: UInt64
     private var catalog: [Stop] = []
     private var searchTask: Task<Void, Never>?
+    private var visibleSelection = ""
 
     private(set) var state: StopsLoadState = .loading
     private(set) var sections: [StopSection] = []
@@ -24,6 +25,21 @@ final class StopsViewModel {
         self.api = api
         self.store = store
         self.debounceNanoseconds = debounceNanoseconds
+        visibleSelection = Self.selectionKey(store.draft)
+        store.addListener(self)
+    }
+
+    func routeDraftDidChange(_ draft: RouteDraft) {
+        let key = Self.selectionKey(draft)
+        guard key != visibleSelection else { return }
+        visibleSelection = key
+        onChange?()
+    }
+
+    private static func selectionKey(_ draft: RouteDraft) -> String {
+        let mode = draft.mode == .oneStop ? "one" : "multi"
+        let rows = draft.stops.map { "\($0.stopID):\($0.packages)" }.joined(separator: "|")
+        return "\(mode)|\(rows)"
     }
 
     func load() async {
@@ -70,22 +86,18 @@ final class StopsViewModel {
 
     func select(_ stop: Stop) {
         store.update { $0.select(stop) }
-        onChange?()
     }
 
     func setMode(_ mode: SelectionMode) {
         store.update { $0.setMode(mode) }
-        onChange?()
     }
 
     func remove(stopID: String) {
         store.update { $0.remove(stopID: stopID) }
-        onChange?()
     }
 
     func savePackages(stopID: String, packages: Int) {
         store.update { $0.setPackages(stopID: stopID, packages: packages) }
-        onChange?()
     }
 
     func addManual(name: String, address: String, phone: String) {
@@ -101,6 +113,5 @@ final class StopsViewModel {
             packagesMax: 99
         )
         store.update { $0.select(stop) }
-        onChange?()
     }
 }

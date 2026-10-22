@@ -100,6 +100,22 @@ final class ViewModelTests: XCTestCase {
         XCTAssertTrue(store.draft.stops[0].stopID.hasPrefix("local_"))
     }
 
+    func testRemovingAStopOnInstructionsRefreshesStops() async {
+        let store = RouteDraftStore()
+        store.update { $0.setMode(.multiStop) }
+        let stops = StopsViewModel(api: FakeAPI(), store: store)
+        let instructions = InstructionsViewModel(api: FakeAPI(), store: store)
+        store.update {
+            $0.select(makeStop(id: "a", name: "Almond"))
+            $0.select(makeStop(id: "b", name: "Birch"))
+        }
+        var refreshes = 0
+        stops.onChange = { refreshes += 1 }
+        instructions.remove(stopID: "a")
+        XCTAssertEqual(store.draft.stops.map(\.stopID), ["b"])
+        XCTAssertEqual(refreshes, 1)
+    }
+
     func testInstructionCardsKeepTheDesignHeightAndCanScroll() {
         let store = RouteDraftStore()
         store.update {
